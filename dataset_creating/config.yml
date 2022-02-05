@@ -1,0 +1,10 @@
+figsize_boundaries: [5, 10]
+text_length_boundaries: [4, 10]
+fontsize_boundaries: [10, 20]
+number_of_graphs: 5
+scatter_plot_threshold: 0.75
+x_factor_boundaries: [0.01, 100]
+y_factor_boundaries: [0.01, 100]
+points_boundaries: [5, 30]
+scattering_points_boundaries: [5, 30]
+deg_boundaries: [1, 4]
