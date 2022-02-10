@@ -1,4 +1,5 @@
 import matplotlib.patches as patches
+import numpy as np
 
 
 def get_bbox_coordinates(fig, ax):
@@ -76,6 +77,7 @@ def get_tick_coordinates(fig, ax, tick):
 
 def get_all_ticks_coordinates(fig, ax, ticks):
     res = []
+
     for tick in ticks:
         res.append(get_tick_coordinates(fig, ax, tick))
 
@@ -104,8 +106,8 @@ def get_boxes_coordinates(fig, ax, artists):
 
     ylabel_coordinates = get_label_coordinates(fig, ax, artists['ylabel'])
 
-    ticks = [t for t in ax.get_xticklabels()]
-    ticks += [t for t in ax.get_yticklabels()]
+    ticks = [t for t in ax.get_xticklabels()][1:-1]
+    ticks += [t for t in ax.get_yticklabels()][1:-1]
     ticks = get_all_ticks_coordinates(fig, ax, ticks)
 
     # for tick in ticks:
@@ -117,6 +119,13 @@ def get_boxes_coordinates(fig, ax, artists):
 
     legend_coordinates = get_legend_coordinates(fig, ax, artists['legend'])
 
+    ticks = [
+        {
+            "text": tick[0]['text'],
+            "coordinates": (tick[0]['coordinates'], tick[1]['coordinates'])
+        }
+        for tick in ticks
+    ]
     boxes_coordinates = {
         'title_coordinates': title_coordinates,
         'xlabel_coordinates': xlabel_coordinates,
@@ -126,6 +135,47 @@ def get_boxes_coordinates(fig, ax, artists):
     }
 
     return boxes_coordinates
+
+
+def get_ticks(fig, ax):
+    """
+    Get tiks values of x and y axes and
+    positions of ticks in figure's coordinate system
+    """
+
+    ax_to_figure_transformation = ax.transAxes + ax.figure.transFigure.inverted()
+
+    x_min, x_max = ax.get_xlim()
+    y_min, y_max = ax.get_ylim()
+    xticks_pos = [(tick - x_min) / (x_max - x_min) for tick in ax.get_xticks()]
+    yticks_pos = [(tick - y_min) / (y_max - y_min) for tick in ax.get_yticks()]
+
+    crd_x = np.vstack((xticks_pos, np.zeros_like(xticks_pos))).T
+    crd_y = np.vstack((np.zeros_like(yticks_pos), yticks_pos)).T
+
+    xticks_pos = ax_to_figure_transformation.transform(crd_x)
+    yticks_pos = ax_to_figure_transformation.transform(crd_y)
+
+    coords = []
+
+    width = max(
+        ax.yaxis.get_ticklines()[1].get_markeredgewidth(),
+        ax.xaxis.get_ticklines()[1].get_markeredgewidth()
+    )
+    height = max(
+        ax.yaxis.get_ticklines()[1].get_markersize(),
+        ax.xaxis.get_ticklines()[1].get_markersize()
+    )
+    bias = ax_to_figure_transformation.transform(
+        ax.transAxes.inverted().transform(
+            (max(width, height), 0)
+        )
+    )[0] * 1.5
+
+    xticks_pos = [((p[0] - bias, p[1] - bias), (p[0] + bias, p[1] + bias)) for p in xticks_pos]
+    yticks_pos = [((p[0] - bias, p[1] - bias), (p[0] + bias, p[1] + bias)) for p in yticks_pos]
+
+    return ax.get_xticks()[1:-1], ax.get_yticks()[1:-1], xticks_pos[1:-1], yticks_pos[1:-1], coords
 
 
 def show_artists(fig, ax, artists):
@@ -142,12 +192,19 @@ def show_artists(fig, ax, artists):
     fig, ax = add_bbox(fig, ax, p,
                        linewidth=1, edgecolor='g', facecolor='none')
 
-    ticks = [t for t in ax.get_xticklabels()]
-    ticks += [t for t in ax.get_yticklabels()]
+    ticks = [t for t in ax.get_xticklabels()][1:-1]
+    ticks += [t for t in ax.get_yticklabels()][1:-1]
     ticks = get_all_ticks_coordinates(fig, ax, ticks)
+    ticks = [
+        {
+            "text": tick[0]['text'],
+            "coordinates": (tick[0]['coordinates'], tick[1]['coordinates'])
+        }
+        for tick in ticks
+    ]
 
     for tick in ticks:
-        p = [t['coordinates'] for t in tick]
+        p = tick['coordinates']
         fig, ax = add_bbox(
             fig, ax, p,
             linewidth=1, edgecolor='magenta', facecolor='none'

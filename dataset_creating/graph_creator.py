@@ -1,9 +1,26 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 import json
 import random
-from extracting_data import show_artists, get_boxes_coordinates, get_bbox_coordinates
+from extracting_data import show_artists, get_ticks, get_boxes_coordinates, get_bbox_coordinates
 from dataclasses import dataclass
+
+
+def add_bbox(fig, ax, coordinates, **kwargs):
+    size = fig.get_size_inches() * fig.dpi
+    p = coordinates
+    rect = patches.Rectangle(
+        (
+            p[0][0],
+            p[0][1]
+        ),
+        (p[1][0] - p[0][0]),
+        (p[1][1] - p[0][1]),
+        clip_on=False, transform=ax.transAxes, **kwargs)
+
+    ax.add_patch(rect)
+    return fig, ax
 
 
 @dataclass
@@ -59,6 +76,7 @@ class GraphSynthetic:
     title_locations = x_locations
 
     def __init__(self, config):
+        self.json_params = {}
         self.parameters = self.generate_random_parameters(config)
         self.label_generator = self.create_random_name
         self.fig, self.ax = None, None
@@ -78,7 +96,7 @@ class GraphSynthetic:
 
         figsize = tuple(np.random.randint(figsize_min, figsize_max, 2))
         xlabel_length, ylabel_length, title_length = np.random.randint(text_length_min, text_length_max, 3)
-        xlabel_location, ylabel_location, title_location = np.random.randint(0, 2, 3)
+        xlabel_location, ylabel_location, title_location = np.random.randint(0, 3, 3)
         xlabel_fontsize, ylabel_fontsize, title_fontsize = np.random.randint(fontsize_min, fontsize_max, 3)
         types_of_graphs = np.random.random(number_of_graphs)
 
@@ -134,8 +152,10 @@ class GraphSynthetic:
             fontsize=self.parameters.title_fontsize,
             loc=self.title_locations[self.parameters.title_location]
         )
+        space_of_factors = np.logspace(-2, 2, 1000)
 
-        x_factor = self.random_in_range(self.parameters.x_factor_min, self.parameters.x_factor_max)
+        x_factor = space_of_factors[np.random.randint(1, 1000)]
+        #  self.random_in_range(self.parameters.x_factor_min, self.parameters.x_factor_max)
 
         for i, graph_type in enumerate(self.parameters.types_of_graphs):
             n = np.random.randint(self.parameters.points_min, self.parameters.points_max)
@@ -144,7 +164,9 @@ class GraphSynthetic:
             y = np.random.rand(n)
 
             coefs = np.polyfit(x, y, deg=deg)
-            y_factor = self.random_in_range(self.parameters.y_factor_min, self.parameters.y_factor_max)
+
+            # y_factor = self.random_in_range(self.parameters.y_factor_min, self.parameters.y_factor_max)
+            y_factor = space_of_factors[np.random.randint(1, 1000)]
 
             if graph_type >= self.parameters.scatter_plot_threshold:
                 number_of_points = np.random.randint(
@@ -154,14 +176,14 @@ class GraphSynthetic:
 
                 x = np.linspace(0, 1, number_of_points)
                 ax.scatter(x * x_factor, self.poly_generator(coefs, x) * y_factor,
-                           s=size, label=f'scatter {i}')
+                           s=size, label=self.label_generator(np.random.randint(4, 8)))
 
             else:
                 width = np.random.rand() * 4 + 1
 
                 x = np.linspace(0, 1, 100)
                 ax.plot(x * x_factor, self.poly_generator(coefs, x) * y_factor,
-                        linewidth=width, label=f'line {i}')
+                        linewidth=width, label=self.label_generator(np.random.randint(4, 8)))
 
         legend_location = np.random.randint(1, 10)
         lgd = ax.legend(loc=legend_location)
@@ -172,7 +194,12 @@ class GraphSynthetic:
             'legend': lgd
         }
         bbox_points = get_bbox_coordinates(fig, ax)
+
+        plt.xticks(rotation=45 * np.random.randint(0, 3))
+        plt.yticks(rotation=45 * np.random.randint(0, 3))
+
         fig.canvas.draw()
+        _, _, xticks_pos, yticks_pos, coords = get_ticks(fig, ax)
 
         if plot_artists_positions:
             fig, ax = show_artists(fig, ax, artists)
@@ -182,5 +209,32 @@ class GraphSynthetic:
                     transform=fig.transFigure, clip_on=False
                 )
 
+            for p in yticks_pos:
+                ax.scatter(*p[0], color='r', s=5, alpha=0.5,
+                           transform=fig.transFigure, clip_on=False)
+                ax.scatter(*p[1], color='r', s=5, alpha=0.5,
+                           transform=fig.transFigure, clip_on=False)
+
+            for p in xticks_pos:
+                ax.scatter(*p[0], color='r', s=5, alpha=0.5,
+                           transform=fig.transFigure, clip_on=False)
+                ax.scatter(*p[1], color='r', s=5, alpha=0.5,
+                           transform=fig.transFigure, clip_on=False)
+
+        d = {
+            **get_boxes_coordinates(fig, ax, artists),
+            **{
+                'bbox_coordinates': bbox_points,
+                'xlabel': xlabel,
+                'ylabel': ylabel,
+                'title': ttl,
+                'number_of_graphs': len(self.parameters.types_of_graphs),
+                'xticks_positions': xticks_pos,
+                'yticks_positions': yticks_pos
+            },
+        }
+
+        # print(json.dumps(d, indent=4, sort_keys=True))
+        self.json_params = d
         self.fig, self.ax = fig, ax
         return fig, ax

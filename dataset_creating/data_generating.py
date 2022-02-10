@@ -27,7 +27,7 @@ def poly_generator(c, x):
 
 
 def create_json_of_graph(fig, ax, input_data, artists):
-    print(input_data)
+    # print(input_data)
     return json.dumps(
         {**input_data, **get_boxes_coordinates(fig, ax, artists)},
         cls=NpEncoder
